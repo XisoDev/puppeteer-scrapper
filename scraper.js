@@ -107,6 +107,20 @@ function showHelp() {
 `);
 }
 
+function normalizeUrl(url) {
+    try {
+        const u = new URL(url);
+        u.hash = '';
+        // 쿼리스트링은 유지
+        if (u.pathname !== '/' && u.pathname.endsWith('/')) {
+            u.pathname = u.pathname.slice(0, -1);
+        }
+        return u.toString();
+    } catch (e) {
+        return url;
+    }
+}
+
 class AmuzScraper {
     constructor(options = {}) {
         console.log('AmuzScraper 생성자 진입', options);
@@ -245,10 +259,12 @@ class AmuzScraper {
 
     async extractLinks(pageUrl, depth = 0) {
         console.log(`extractLinks() 진입: url=${pageUrl}, depth=${depth}`);
-        if (depth > this.maxDepth || this.visitedUrls.has(pageUrl)) {
-            console.log(`extractLinks() 종료: depth 초과 또는 이미 방문함 (${pageUrl})`);
+        const normalizedPageUrl = normalizeUrl(pageUrl);
+        if (depth > this.maxDepth || this.visitedUrls.has(normalizedPageUrl)) {
+            console.log(`extractLinks() 종료: depth 초과 또는 이미 방문함 (${normalizedPageUrl})`);
             return [];
         }
+        this.visitedUrls.add(normalizedPageUrl);
 
         const rootDomain = (new URL(this.baseUrl)).origin;
         console.log('extractLinks() rootDomain:', rootDomain);
@@ -288,7 +304,8 @@ class AmuzScraper {
             // 다음 뎁스로 큐에 추가
             if (depth < this.maxDepth) {
                 for (const link of links) {
-                    if (!this.visitedUrls.has(link.url)) {
+                    const normalizedLinkUrl = normalizeUrl(link.url);
+                    if (!this.visitedUrls.has(normalizedLinkUrl)) {
                         this.urlQueue.push({ url: link.url, depth: depth + 1 });
                     }
                 }
@@ -544,7 +561,7 @@ class AmuzScraper {
         while (this.urlQueue.length > 0) {
             const { url, depth } = this.urlQueue.shift();
             
-            if (!this.visitedUrls.has(url)) {
+            if (!this.visitedUrls.has(normalizeUrl(url))) {
                 await this.extractLinks(url, depth);
                 
                 // 요청 간격 조절 (서버 부하 방지)
