@@ -3,10 +3,10 @@
   "version": "1.1.0",
   "description": "puppeteer 기반의 사이트 크롤링 스크립트",
   "type": "module",
-  "main": "scraper.js",
+  "main": "main.js",
   "scripts": {
-    "start": "node scraper.js",
-    "dev": "node --inspect scraper.js"
+    "start": "node main.js",
+    "dev": "node --inspect main.js"
   },
   "dependencies": {
     "puppeteer": "^24.12.1",
@@ -14,7 +14,7 @@
     "path": "^0.12.7",
     "url": "^0.11.3"
   },
-  "keywords": ["scraper", "puppeteer", "crawler"],
+  "keywords": ["scraper", "puppeteer", "crawler", "website-copier", "website-downloader", "website-offline"],
   "author": "XisoDev",
   "homepage": "https://github.com/XisoDev/puppeteer-scraper",
   "license": "MIT"

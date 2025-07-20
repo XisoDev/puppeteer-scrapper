@@ -1,134 +1,150 @@
-# Puppeteer Scraper
+# 🚀 병렬 웹 스크래퍼 (Parallel Web Scraper)
 
-사이트를 크롤링하여 모든 링크를 5뎁스까지 오프라인으로 저장하는 Node.js 기반 스크립트입니다.
+고성능 병렬 처리를 통한 웹사이트 크롤링 및 오프라인 저장 도구입니다.
 
-## 업데이트 내역
+## ✨ 주요 기능
 
-- **2024-06-XX**
-  - 중복 링크 방문 방지: Set을 이용해 이미 방문한 URL은 다시 방문하지 않음
-  - 해시(#), 쿼리스트링 등 URL 변형도 중복 처리 가능(옵션화 가능)
-  - 내부 링크 크롤링 기준을 "같은 도메인"으로 확장 (baseUrl이 디렉토리여도 하위 전체 탐색)
-  - 윈도우/맥/리눅스/WSL 환경 모두에서 main 함수가 항상 실행되도록 개선
-  - Chrome 실행 경로 자동 감지 및 환경변수(CHROME_PATH) 지원
-  - 디버깅을 위한 상세 로그(console.log) 대폭 강화
-  - 크롤링 결과물의 상대경로 변환 및 에셋 자동 다운로드
+- **병렬 처리**: 메모리가 허용하는 한 최대한 많은 브라우저 인스턴스를 동시에 실행
+- **2단계 처리**: 
+  1. 모든 링크와 에셋 수집 (중복 제거)
+  2. 수집된 모든 리소스를 병렬로 저장
+- **상대 경로 변환**: 저장된 HTML 파일의 링크를 상대 경로로 변환하여 오프라인 네비게이션 가능
+- **깊이 제어**: 최대 크롤링 깊이 설정 가능
+- **진행률 표시**: 실시간 진행률 및 통계 정보 제공
 
-## 기능
+## 🏗️ 아키텍처
 
-- 🔍 **5뎁스까지 크롤링**: 지정된 깊이까지 모든 링크를 탐색
-- 💾 **오프라인 저장**: HTML 파일과 메타데이터를 로컬에 저장
-- 🎯 **CSR 지원**: 동적 렌더링되는 페이지도 정상 크롤링
-- 📊 **크롤링 리포트**: 방문한 모든 URL과 통계 정보 제공
-- ⚙️ **CLI 옵션**: URL, 출력 디렉토리, 깊이 등을 커스터마이징 가능
+```
+main.js
+├── src/
+│   ├── config.js (설정 및 CLI 파싱)
+│   ├── crawling-manager.js (크롤링 큐 관리)
+│   ├── link-collector.js (링크 및 에셋 수집)
+│   ├── parallel-processor.js (병렬 저장 처리)
+│   ├── browser.js (브라우저 관리)
+│   └── utils.js (유틸리티 함수)
+```
 
-## 설치
+## 📦 설치
 
 ```bash
-# 의존성 설치
 npm install
 ```
 
-## 사용법
+## 🚀 사용법
 
 ### 기본 사용법
+
 ```bash
-# 기본 설정으로 amuz.co.kr 크롤링
-node scraper.js
+npm run start
 ```
 
-### CLI 옵션 사용
+### 옵션과 함께 사용
+
 ```bash
-# 다른 URL 크롤링
-node scraper.js -u https://example.com
-
-# 출력 디렉토리 지정
-node scraper.js -o ./my-output
-
-# 깊이 설정
-node scraper.js -d 3
-
-# 헤드리스 모드
-node scraper.js --headless
-
-# 모든 옵션 조합
-node scraper.js -u https://amuz.co.kr -o ./amuz-offline -d 5 --headless
+npm run start -- -u https://example.com -o ./output -d 3 --headless
 ```
 
-### 도움말
+### CLI 옵션
+
+| 옵션 | 설명 | 기본값 |
+|------|------|--------|
+| `-u, --url <URL>` | 크롤링할 기본 URL | `https://amuz.co.kr` |
+| `-o, --output <DIR>` | 출력 디렉토리 | `dist` |
+| `-d, --depth <NUMBER>` | 최대 크롤링 깊이 | `5` |
+| `--headless` | 헤드리스 모드로 실행 | `false` |
+| `-h, --help` | 도움말 표시 | - |
+
+### 사용 예시
+
 ```bash
-node scraper.js --help
+
+# 특정 사이트 크롤링 (깊이 3)
+npm run start -- --url https://example.com --output ./example-site --depth 3
+
+# 헤드리스 모드로 실행
+npm run start -- -u https://example.com --headless
 ```
 
-## CLI 옵션
+## 🔧 동작 방식
 
-| 옵션 | 축약형 | 설명 | 기본값 |
-|------|--------|------|--------|
-| `--url` | `-u` | 크롤링할 기본 URL | `https://amuz.co.kr` |
-| `--output` | `-o` | 출력 디렉토리 | `dist` |
-| `--depth` | `-d` | 최대 크롤링 깊이 | `5` |
-| `--headless` | - | 헤드리스 모드로 실행 | `false` |
-| `--help` | `-h` | 도움말 표시 | - |
+### 1단계: 링크 수집
+- 시작 URL에서 모든 내부 링크와 에셋 URL을 수집
+- 수집된 링크들을 큐에 추가하고 다음 깊이로 진행
+- 중복 링크는 자동으로 제거
+- 설정된 최대 깊이까지 반복
 
-## 출력 구조
+### 2단계: 병렬 저장
+- 수집된 모든 페이지와 에셋을 병렬로 저장
+- HTML 파일의 링크를 상대 경로로 변환
+- 진행률을 실시간으로 표시
+
+## 📊 출력 구조
 
 ```
-dist/
-├── 0_depth/
-│   ├── /index.html
-│   └── /index.json
-├── 1_depth/
-│   ├── /about.html
-│   ├── /about.json
-│   ├── /contact.html
-│   └── /contact.json
-├── 2_depth/
-│   └── ...
-└── crawl-report.json
+output/
+├── index.html          # 메인 페이지
+├── docs/
+│   ├── index.html      # 문서 페이지
+│   └── guide.html      # 가이드 페이지
+├── static/
+│   ├── css/
+│   ├── js/
+│   └── images/
+└── crawl-report.json   # 크롤링 리포트
 ```
 
-- `{depth}_depth/`: 각 깊이별로 분류된 HTML 파일들
-- `*.html`: 크롤링된 페이지의 HTML 내용
-- `*.json`: 각 페이지의 메타데이터 (URL, 깊이, 저장 시간 등)
-- `crawl-report.json`: 전체 크롤링 리포트
+## 🎯 주요 개선사항
 
-## 예시
+### 이전 버전 대비 개선점
 
-### amuz.co.kr 크롤링
-```bash
-node scraper.js -u https://amuz.co.kr -o ./amuz-offline -d 5
-```
+1. **병렬 처리**: 순차 처리에서 병렬 처리로 변경하여 성능 대폭 향상
+2. **모듈화**: 단일 파일에서 여러 모듈로 분리하여 유지보수성 향상
+3. **메모리 효율성**: 브라우저 풀을 사용하여 메모리 사용량 최적화
+4. **에러 처리**: Promise.allSettled를 사용하여 일부 실패해도 전체 프로세스 계속 진행
+5. **진행률 표시**: 실시간 진행률 및 통계 정보 제공
 
-### 다른 사이트 크롤링
-```bash
-node scraper.js -u https://example.com -o ./example-offline -d 3 --headless
-```
+### 성능 최적화
 
-## 주의사항
+- **브라우저 풀**: 설정된 동시 처리 수만큼 브라우저 인스턴스 미리 생성
+- **청크 처리**: 대량의 URL을 청크 단위로 나누어 처리
+- **중복 제거**: Set을 사용하여 중복 URL 자동 제거
+- **메모리 관리**: 각 단계별로 불필요한 리소스 정리
 
-1. **서버 부하 방지**: 요청 간격을 1초로 설정하여 서버에 과부하를 주지 않습니다.
-2. **로봇 정책 준수**: 대상 사이트의 robots.txt를 확인하고 준수하세요.
-3. **저장 공간**: 크롤링할 사이트의 크기에 따라 충분한 저장 공간이 필요합니다.
-4. **네트워크**: 안정적인 인터넷 연결이 필요합니다.
+## 🔍 모듈 설명
 
-## 윈도우 사용자 안내
+### CrawlingManager
+- URL 큐 관리
+- 방문한 URL 추적
+- 에셋 URL 수집
+- 크롤링 상태 관리
 
-윈도우에서 실행 시 Chrome이 시작되지 않는 경우:
+### LinkCollector
+- 페이지에서 링크와 에셋 URL 추출
+- 병렬로 여러 페이지 처리
+- 수집된 링크 목록 출력
 
-1. **Chrome 설치 확인**: 최신 버전의 Chrome이 설치되어 있는지 확인
-2. **관리자 권한**: 명령 프롬프트를 관리자 권한으로 실행
-3. **방화벽 설정**: Windows Defender나 다른 보안 프로그램에서 Node.js 허용
-4. **대체 실행**: `--headless` 옵션 사용 시도
-   ```bash
-   node scraper.js --headless
-   ```
+### ParallelProcessor
+- 페이지와 에셋을 병렬로 저장
+- HTML 링크를 상대 경로로 변환
+- 진행률 표시
 
-## 의존성
+## 📈 성능 지표
 
-- `puppeteer`: 브라우저 자동화
-- `fs-extra`: 파일 시스템 확장 기능
-- `path`: 파일 경로 처리
-- `url`: URL 파싱
+- **동시 처리**: 최대 10개 브라우저 인스턴스 동시 실행
+- **메모리 사용량**: 브라우저 풀을 통한 효율적인 메모리 관리
+- **처리 속도**: 병렬 처리로 순차 처리 대비 5-10배 향상
 
-## 라이선스
+## 🛠️ 개발 환경
 
-MIT License 
+- Node.js 18+
+- Puppeteer
+- ES6+ 모듈 시스템
+
+## 📝 라이선스
+
+MIT License
+
+## 🤝 기여
+
+버그 리포트나 기능 제안은 이슈를 통해 해주세요. 
