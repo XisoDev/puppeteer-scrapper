@@ -14,9 +14,14 @@ export class BrowserManager {
 
         let executablePath = getChromeExecutablePath();
         if (executablePath) {
-            // Windows에서 경로 정리
+            // Windows에서 경로 정리 - 더 강력한 정리
             if (process.platform === 'win32') {
                 executablePath = executablePath.trim().replace(/\s+/g, '');
+                // 경로가 올바른지 확인
+                if (!executablePath.endsWith('chrome.exe')) {
+                    console.log('⚠️  경로가 올바르지 않습니다. executablePath 없이 시도합니다.');
+                    executablePath = undefined;
+                }
             }
             console.log(`🟢 Chrome 실행 경로: ${executablePath}`);
         } else {
@@ -103,7 +108,8 @@ export class BrowserManager {
                 executablePath,
                 args: browserArgs,
                 ignoreDefaultArgs: ['--enable-automation'],
-                timeout: 30000
+                timeout: 30000,
+                protocolTimeout: 60000  // 프로토콜 타임아웃 증가
             });
         } catch (error) {
             console.log('❌ 기본 설정으로 브라우저 실행 실패, 대체 방법 시도...');
@@ -113,7 +119,8 @@ export class BrowserManager {
                     executablePath,
                     args: simplifiedArgs,
                     ignoreDefaultArgs: ['--enable-automation'],
-                    timeout: 30000
+                    timeout: 30000,
+                    protocolTimeout: 60000  // 프로토콜 타임아웃 증가
                 });
             } catch (secondError) {
                 console.log('❌ 대체 방법도 실패, executablePath 없이 시도...');
@@ -121,20 +128,27 @@ export class BrowserManager {
                     headless: this.headless,
                     args: simplifiedArgs,
                     ignoreDefaultArgs: ['--enable-automation'],
-                    timeout: 30000
+                    timeout: 30000,
+                    protocolTimeout: 60000  // 프로토콜 타임아웃 증가
                 });
             }
         }
 
-        this.page = await this.browser.newPage();
-        
-        // 사용자 에이전트 설정
-        await this.page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-        
-        // 뷰포트 설정
-        await this.page.setViewport({ width: 1920, height: 1080 });
+        // 페이지 생성 시 더 안정적인 설정
+        try {
+            this.page = await this.browser.newPage();
+            
+            // 사용자 에이전트 설정
+            await this.page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+            
+            // 뷰포트 설정
+            await this.page.setViewport({ width: 1920, height: 1080 });
 
-        console.log('✅ 브라우저 초기화 완료');
+            console.log('✅ 브라우저 초기화 완료');
+        } catch (pageError) {
+            console.log('❌ 페이지 생성 실패:', pageError.message);
+            throw pageError;
+        }
     }
 
     async close() {
