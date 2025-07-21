@@ -1,11 +1,12 @@
 {
   "name": "puppeteer-scraper",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "description": "puppeteer 기반의 사이트 크롤링 스크립트",
   "type": "module",
   "main": "main.js",
   "scripts": {
     "start": "node main.js",
+    "start:win": "node --max-old-space-size=2048 main.js",
     "dev": "node --inspect main.js"
   },
   "dependencies": {

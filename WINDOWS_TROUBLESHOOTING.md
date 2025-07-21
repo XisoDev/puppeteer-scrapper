@@ -57,18 +57,24 @@ Windows에서 Chrome 브라우저 실행 시 다음과 같은 오류가 발생�
 
 ### 4. 추가 권장사항
 
-1. **헤드리스 모드 사용**
+1. **Windows 전용 스크립트 사용**
+   ```bash
+   npm run start:win -- --headless
+   ```
+
+2. **헤드리스 모드 사용**
    ```bash
    npm run start -- --headless
    ```
 
-2. **크롤링 깊이 제한**
+3. **크롤링 깊이 제한**
    ```bash
    npm run start -- -d 2
    ```
 
-3. **동시 처리 수 제한**
-   - `src/parallel-processor.js`에서 `concurrency` 값을 낮춤
+4. **동시 처리 수 제한**
+   - Windows에서 자동으로 3개로 제한됨
+   - 링크 수집기는 2개로 제한됨
 
 ### 5. 시스템 요구사항 확인
 

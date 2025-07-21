@@ -1,3 +1,13 @@
+// Windows에서 메모리 부족 문제를 방지하기 위한 설정
+if (process.platform === 'win32') {
+    // Node.js 메모리 제한 증가
+    const v8 = require('v8');
+    v8.setFlagsFromString('--max-old-space-size=2048');
+    
+    console.log('🖥️  Windows 환경 감지 - 메모리 최적화 적용');
+    console.log('💾 메모리 제한: 2GB');
+}
+
 console.log('🚀 병렬 스크래퍼 시작');
 
 import fs from 'fs-extra';
@@ -110,6 +120,14 @@ class ParallelScraper {
             // 수집된 링크들 출력
             this.linkCollector.printCollectedLinks();
             this.linkCollector.printCollectedAssets();
+            
+            // Windows에서 메모리 정리
+            if (process.platform === 'win32') {
+                if (global.gc) {
+                    global.gc();
+                    console.log('🧹 가비지 컬렉션 실행');
+                }
+            }
             
             currentDepth++;
             
