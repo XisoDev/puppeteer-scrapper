@@ -9,10 +9,14 @@ export class ParallelProcessor {
         this.maxConcurrency = options.maxConcurrency || 10;
         this.browsers = [];
         this.baseUrl = options.baseUrl;
+        this.prefix = options.prefix || null;
         
         console.log('⚡ 병렬 프로세서 초기화');
         console.log(`📁 출력 디렉토리: ${this.outputDir}`);
         console.log(`⚡ 최대 동시 처리: ${this.maxConcurrency}`);
+        if (this.prefix) {
+            console.log(`🔍 Prefix: ${this.prefix}`);
+        }
     }
 
     async init() {
@@ -59,11 +63,12 @@ export class ParallelProcessor {
             if (filePath === '/') {
                 filePath = '/index.html';
             } else if (!filePath.endsWith('.html')) {
-                // 디렉토리인 경우 index.html 추가
+                // 확장자가 없는 경우 디렉토리로 간주하고 index.html 추가
                 if (filePath.endsWith('/')) {
                     filePath += 'index.html';
                 } else {
-                    filePath += '.html';
+                    // 파일명에 확장자가 없는 경우 디렉토리로 처리
+                    filePath += '/index.html';
                 }
             }
             
@@ -76,6 +81,14 @@ export class ParallelProcessor {
                 console.log(`🔍 쿼리스트링 처리: ${url} -> ${filePath}`);
             }
             
+            // Prefix가 있는 경우 경로에 추가
+            if (this.prefix) {
+                // prefix가 이미 포함되어 있는지 확인 후 추가
+                if (!filePath.startsWith(this.prefix)) {
+                    filePath = path.join(this.prefix, filePath.substring(1));
+                }
+            }
+
             // 전체 파일 경로 생성
             const fullFilePath = path.join(this.outputDir, filePath);
             await fs.ensureDir(path.dirname(fullFilePath));
@@ -106,7 +119,16 @@ export class ParallelProcessor {
             console.log(`💾 에셋 저장 중: ${assetUrl}`);
             
             const urlObj = new URL(assetUrl);
-            const assetPath = urlObj.pathname;
+            let assetPath = urlObj.pathname;
+            
+            // Prefix가 있는 경우 경로에 추가
+            if (this.prefix) {
+                // prefix가 이미 포함되어 있는지 확인 후 추가
+                if (!assetPath.startsWith(this.prefix)) {
+                    assetPath = path.join(this.prefix, assetPath.substring(1));
+                }
+            }
+
             const fullAssetPath = path.join(this.outputDir, assetPath);
             await fs.ensureDir(path.dirname(fullAssetPath));
 

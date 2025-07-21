@@ -17,11 +17,12 @@ export function urlToFilePath(url, baseUrl) {
     if (filePath === '/') {
         filePath = '/index.html';
     } else if (!filePath.endsWith('.html')) {
-        // 디렉토리인 경우 index.html 추가
+        // 확장자가 없는 경우 디렉토리로 간주하고 index.html 추가
         if (filePath.endsWith('/')) {
             filePath += 'index.html';
         } else {
-            filePath += '.html';
+            // 파일명에 확장자가 없는 경우 디렉토리로 처리
+            filePath += '/index.html';
         }
     }
     
@@ -35,47 +36,25 @@ export function urlToFilePath(url, baseUrl) {
     return filePath;
 }
 
-// 상대경로 계산 함수
+// 상대경로 계산 함수 (prefix 고려)
 export function calculateRelativePath(fromPath, toPath) {
-    const fromParts = fromPath.split('/').filter(p => p);
-    const toParts = toPath.split('/').filter(p => p);
+    // fromPath의 디렉토리 경로를 기준으로 toPath의 상대 경로를 계산
+    const fromDir = path.posix.dirname(fromPath);
+    let relativePath = path.posix.relative(fromDir, toPath);
     
-    // 공통 접두사 찾기
-    let commonPrefix = 0;
-    for (let i = 0; i < Math.min(fromParts.length, toParts.length); i++) {
-        if (fromParts[i] === toParts[i]) {
-            commonPrefix++;
-        } else {
-            break;
-        }
-    }
-    
-    // 상위 디렉토리로 이동
-    const upCount = fromParts.length - commonPrefix;
-    const relativeParts = toParts.slice(commonPrefix);
-    
-    let relativePath = '../'.repeat(upCount) + relativeParts.join('/');
-    
-    // 루트로 이동하는 경우
+    // 결과 경로가 비어있으면 현재 디렉토리를 가리키도록 설정
     if (relativePath === '') {
         relativePath = './';
-    }
-    
-    // 빈 경로인 경우 현재 디렉토리
-    if (relativePath === '') {
-        relativePath = './';
-    }
-    
-    // 파일명이 없는 경우 index.html 추가
-    if (relativePath.endsWith('/')) {
-        relativePath += 'index.html';
+    } else if (!relativePath.startsWith('../') && !relativePath.startsWith('./')) {
+        // 같은 디렉토리 내의 파일인 경우 './' 추가
+        relativePath = './' + relativePath;
     }
     
     return relativePath;
 }
 
 // HTML 내의 링크를 상대경로로 변환하는 함수
-export function convertHtmlLinksToRelative(html, baseUrl, currentPagePath) {
+export function convertHtmlLinksToRelative(html, baseUrl, currentPagePath, prefix = null) {
     const baseUrlObj = new URL(baseUrl);
     
     // 정규식으로 링크 변환
@@ -96,7 +75,8 @@ export function convertHtmlLinksToRelative(html, baseUrl, currentPagePath) {
                     if (targetPath.endsWith('/')) {
                         targetPath += 'index.html';
                     } else {
-                        targetPath += '.html';
+                        // 파일명에 확장자가 없는 경우 디렉토리로 처리
+                        targetPath += '/index.html';
                     }
                 }
                 
@@ -130,7 +110,8 @@ export function convertHtmlLinksToRelative(html, baseUrl, currentPagePath) {
                 if (targetPath.endsWith('/')) {
                     targetPath += 'index.html';
                 } else {
-                    targetPath += '.html';
+                    // 파일명에 확장자가 없는 경우 디렉토리로 처리
+                    targetPath += '/index.html';
                 }
             }
             
@@ -144,41 +125,62 @@ export function convertHtmlLinksToRelative(html, baseUrl, currentPagePath) {
     
     // CSS 링크 변환
     convertedHtml = convertedHtml.replace(
-        /<link([^>]*?)href=["']([^"']*?)["']([^>]*?)>/gi,
-        (match, before, href, after) => {
-            if (href && href.startsWith('http')) {
-                const urlObj = new URL(href);
-                if (urlObj.origin === baseUrlObj.origin) {
-                    return `<link${before}href="${relativePrefix + urlObj.pathname.substring(1)}"${after}>`;
+        /<link([^>]*?)href=["']([^"']*?)["']/gi,
+        (match, before, href) => {
+            if (!href) return match;
+            try {
+                const absoluteUrl = new URL(href, baseUrl).toString();
+                if (absoluteUrl.startsWith(baseUrl)) {
+                    const targetPath = urlToFilePath(absoluteUrl, baseUrl);
+                    if (targetPath) {
+                        const relativeHref = calculateRelativePath(currentPagePath, targetPath);
+                        return `<link${before}href="${relativeHref}"`;
+                    }
                 }
+            } catch (e) {
+                // Ignore invalid URLs
             }
             return match;
         }
     );
-    
+
     // 이미지 src 변환
     convertedHtml = convertedHtml.replace(
-        /<img([^>]*?)src=["']([^"']*?)["']([^>]*?)>/gi,
-        (match, before, src, after) => {
-            if (src && src.startsWith('http')) {
-                const urlObj = new URL(src);
-                if (urlObj.origin === baseUrlObj.origin) {
-                    return `<img${before}src="${relativePrefix + urlObj.pathname.substring(1)}"${after}>`;
+        /<img([^>]*?)src=["']([^"']*?)["']/gi,
+        (match, before, src) => {
+            if (!src) return match;
+            try {
+                const absoluteUrl = new URL(src, baseUrl).toString();
+                if (absoluteUrl.startsWith(baseUrl)) {
+                    const targetPath = urlToFilePath(absoluteUrl, baseUrl);
+                    if (targetPath) {
+                        const relativeSrc = calculateRelativePath(currentPagePath, targetPath);
+                        return `<img${before}src="${relativeSrc}"`;
+                    }
                 }
+            } catch (e) {
+                // Ignore invalid URLs
             }
             return match;
         }
     );
-    
+
     // 스크립트 src 변환
     convertedHtml = convertedHtml.replace(
-        /<script([^>]*?)src=["']([^"']*?)["']([^>]*?)>/gi,
-        (match, before, src, after) => {
-            if (src && src.startsWith('http')) {
-                const urlObj = new URL(src);
-                if (urlObj.origin === baseUrlObj.origin) {
-                    return `<script${before}src="${relativePrefix + urlObj.pathname.substring(1)}"${after}>`;
+        /<script([^>]*?)src=["']([^"']*?)["']/gi,
+        (match, before, src) => {
+            if (!src) return match;
+            try {
+                const absoluteUrl = new URL(src, baseUrl).toString();
+                if (absoluteUrl.startsWith(baseUrl)) {
+                    const targetPath = urlToFilePath(absoluteUrl, baseUrl);
+                    if (targetPath) {
+                        const relativeSrc = calculateRelativePath(currentPagePath, targetPath);
+                        return `<script${before}src="${relativeSrc}"`;
+                    }
                 }
+            } catch (e) {
+                // Ignore invalid URLs
             }
             return match;
         }

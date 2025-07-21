@@ -44,7 +44,8 @@ class ParallelScraper {
         this.processor = new ParallelProcessor({
             baseUrl: this.options.baseUrl,
             outputDir: this.options.outputDir,
-            maxConcurrency: this.options.maxConcurrency
+            maxConcurrency: this.options.maxConcurrency,
+            prefix: this.options.prefix
         });
         await this.processor.init();
         
