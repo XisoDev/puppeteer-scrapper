@@ -6,6 +6,7 @@ export class BrowserManager {
         this.headless = headless;
         this.browser = null;
         this.page = null;
+        this.isInitialized = false;
     }
 
     async init() {
@@ -23,7 +24,7 @@ export class BrowserManager {
             console.log('⚠️  Chrome 실행 파일을 찾을 수 없습니다. 시스템 Chrome을 사용합니다.');
         }
 
-        // Windows에서 안정적으로 동작하는 최소한의 인자들
+        // Windows에서 메모리 부족 문제를 해결하기 위한 최소한의 인자들
         const browserArgs = [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -54,27 +55,63 @@ export class BrowserManager {
             '--metrics-recording-only',
             '--password-store=basic',
             '--use-mock-keychain',
-            '--disable-blink-features=AutomationControlled'
+            '--disable-blink-features=AutomationControlled',
+            // 메모리 사용량 최소화를 위한 추가 인자들
+            '--disable-javascript',
+            '--disable-images',
+            '--disable-plugins',
+            '--disable-java',
+            '--disable-logging',
+            '--disable-default-apps',
+            '--disable-sync',
+            '--disable-translate',
+            '--disable-background-networking',
+            '--disable-client-side-phishing-detection',
+            '--disable-component-extensions-with-background-pages',
+            '--disable-features=TranslateUI',
+            '--force-color-profile=srgb',
+            '--metrics-recording-only',
+            '--password-store=basic',
+            '--use-mock-keychain',
+            '--disable-blink-features=AutomationControlled',
+            '--memory-pressure-off',
+            '--max_old_space_size=512',
+            '--js-flags=--max-old-space-size=512'
         ];
 
         try {
-            // 브라우저 시작
+            // 브라우저 시작 - 메모리 사용량 최소화
             this.browser = await puppeteer.launch({
                 headless: this.headless,
                 executablePath,
                 args: browserArgs,
                 ignoreDefaultArgs: ['--enable-automation'],
                 timeout: 60000,
-                protocolTimeout: 60000
+                protocolTimeout: 60000,
+                // 메모리 사용량 제한
+                defaultViewport: { width: 800, height: 600 },
+                // 프로세스 수 제한
+                pipe: true
             });
 
             // 페이지 생성
             this.page = await this.browser.newPage();
             
-            // 기본 설정만 적용 (안정성을 위해)
+            // 메모리 사용량 최소화를 위한 설정
             await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
             
+            // 리소스 로딩 제한
+            await this.page.setRequestInterception(true);
+            this.page.on('request', (req) => {
+                if (['image', 'stylesheet', 'font'].includes(req.resourceType())) {
+                    req.abort();
+                } else {
+                    req.continue();
+                }
+            });
+            
             console.log('✅ 브라우저 초기화 완료');
+            this.isInitialized = true;
             
         } catch (error) {
             console.log('❌ 브라우저 실행 실패:', error.message);
@@ -84,13 +121,24 @@ export class BrowserManager {
                 console.log('🔄 대체 방법으로 재시도...');
                 this.browser = await puppeteer.launch({
                     headless: this.headless,
-                    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+                    args: [
+                        '--no-sandbox', 
+                        '--disable-setuid-sandbox', 
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--disable-images',
+                        '--disable-javascript',
+                        '--memory-pressure-off',
+                        '--max_old_space_size=256'
+                    ],
                     timeout: 60000,
-                    protocolTimeout: 60000
+                    protocolTimeout: 60000,
+                    pipe: true
                 });
                 
                 this.page = await this.browser.newPage();
                 console.log('✅ 대체 방법으로 브라우저 초기화 완료');
+                this.isInitialized = true;
                 
             } catch (secondError) {
                 console.log('❌ 모든 방법 실패:', secondError.message);
@@ -101,16 +149,34 @@ export class BrowserManager {
 
     async close() {
         if (this.browser) {
-            await this.browser.close();
-            console.log('🔚 브라우저 종료');
+            try {
+                await this.browser.close();
+                console.log('🔚 브라우저 종료');
+            } catch (error) {
+                console.log('⚠️  브라우저 종료 중 오류:', error.message);
+            } finally {
+                this.browser = null;
+                this.page = null;
+                this.isInitialized = false;
+            }
         }
     }
 
     getPage() {
+        if (!this.isInitialized || !this.page) {
+            throw new Error('브라우저가 초기화되지 않았습니다.');
+        }
         return this.page;
     }
 
     getBrowser() {
+        if (!this.isInitialized || !this.browser) {
+            throw new Error('브라우저가 초기화되지 않았습니다.');
+        }
         return this.browser;
+    }
+
+    isReady() {
+        return this.isInitialized && this.browser && this.page;
     }
 } 
