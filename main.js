@@ -1,7 +1,8 @@
+import v8 from 'v8';
+
 // Windows에서 메모리 부족 문제를 방지하기 위한 설정
 if (process.platform === 'win32') {
     // Node.js 메모리 제한 증가
-    const v8 = require('v8');
     v8.setFlagsFromString('--max-old-space-size=2048');
     
     console.log('🖥️  Windows 환경 감지 - 메모리 최적화 적용');
