@@ -25,23 +25,52 @@ export class ParallelProcessor {
         // 출력 디렉토리 생성
         await fs.ensureDir(this.outputDir);
         
-        // 브라우저 풀 생성
-        for (let i = 0; i < this.maxConcurrency; i++) {
-            const browserManager = new BrowserManager({ headless: true });
-            await browserManager.init();
-            this.browsers.push(browserManager);
+        // Windows에서 메모리 부족 문제를 방지하기 위해 동시 처리 수 제한
+        const adjustedConcurrency = process.platform === 'win32' ? Math.min(this.maxConcurrency, 3) : this.maxConcurrency;
+        
+        console.log(`🖥️  플랫폼: ${process.platform}`);
+        console.log(`⚡ 조정된 동시 처리 수: ${adjustedConcurrency}`);
+        
+        // 브라우저 풀 생성 (Windows에서는 더 적은 수로)
+        for (let i = 0; i < adjustedConcurrency; i++) {
+            try {
+                const browserManager = new BrowserManager({ headless: true });
+                await browserManager.init();
+                this.browsers.push(browserManager);
+                console.log(`✅ 브라우저 ${i + 1}/${adjustedConcurrency} 초기화 완료`);
+                
+                // Windows에서 브라우저 간 간격 추가
+                if (process.platform === 'win32') {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            } catch (error) {
+                console.error(`❌ 브라우저 ${i + 1} 초기화 실패:`, error.message);
+                // 실패한 브라우저는 건너뛰고 계속 진행
+            }
         }
         
-        console.log(`✅ ${this.maxConcurrency}개의 브라우저 인스턴스 생성 완료`);
+        console.log(`✅ ${this.browsers.length}개의 브라우저 인스턴스 생성 완료`);
     }
 
     // 단일 페이지 저장
     async savePage(url) {
+        if (this.browsers.length === 0) {
+            console.error('❌ 사용 가능한 브라우저가 없습니다.');
+            return null;
+        }
+        
         const browser = this.browsers[Math.floor(Math.random() * this.browsers.length)];
-        const page = await browser.browser.newPage();
+        let page = null;
         
         try {
             console.log(`💾 페이지 저장 중: ${url}`);
+            
+            // 기존 페이지 재사용 또는 새 페이지 생성
+            if (browser.isReady()) {
+                page = browser.getPage();
+            } else {
+                page = await browser.getBrowser().newPage();
+            }
             
             // 페이지 로드
             await page.goto(url, { 
@@ -106,17 +135,36 @@ export class ParallelProcessor {
             console.error(`❌ 페이지 저장 실패 (${url}):`, error.message);
             return null;
         } finally {
-            await page.close();
+            // 페이지를 닫지 않고 재사용 (메모리 절약)
+            if (page && page.url() !== 'about:blank') {
+                try {
+                    await page.goto('about:blank');
+                } catch (e) {
+                    // 무시
+                }
+            }
         }
     }
 
     // 단일 에셋 저장
     async saveAsset(assetUrl) {
+        if (this.browsers.length === 0) {
+            console.error('❌ 사용 가능한 브라우저가 없습니다.');
+            return null;
+        }
+        
         const browser = this.browsers[Math.floor(Math.random() * this.browsers.length)];
-        const page = await browser.browser.newPage();
+        let page = null;
         
         try {
             console.log(`💾 에셋 저장 중: ${assetUrl}`);
+            
+            // 기존 페이지 재사용 또는 새 페이지 생성
+            if (browser.isReady()) {
+                page = browser.getPage();
+            } else {
+                page = await browser.getBrowser().newPage();
+            }
             
             const urlObj = new URL(assetUrl);
             let assetPath = urlObj.pathname;
@@ -157,7 +205,14 @@ export class ParallelProcessor {
             console.error(`❌ 에셋 저장 실패 (${assetUrl}):`, error.message);
             return null;
         } finally {
-            await page.close();
+            // 페이지를 닫지 않고 재사용 (메모리 절약)
+            if (page && page.url() !== 'about:blank') {
+                try {
+                    await page.goto('about:blank');
+                } catch (e) {
+                    // 무시
+                }
+            }
         }
     }
 
@@ -165,7 +220,9 @@ export class ParallelProcessor {
     async savePages(urls) {
         console.log(`🚀 ${urls.length}개 페이지 병렬 저장 시작`);
         
-        const chunks = this.chunkArray(urls, this.maxConcurrency);
+        // Windows에서 청크 크기 조정
+        const chunkSize = process.platform === 'win32' ? Math.min(this.browsers.length, 2) : this.maxConcurrency;
+        const chunks = this.chunkArray(urls, chunkSize);
         let totalProcessed = 0;
         const savedFiles = [];
         
@@ -183,8 +240,9 @@ export class ParallelProcessor {
             totalProcessed += chunk.length;
             console.log(`📊 진행률: ${totalProcessed}/${urls.length} (${Math.round(totalProcessed/urls.length*100)}%)`);
             
-            // 요청 간격 조절
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Windows에서 더 긴 간격 조절
+            const interval = process.platform === 'win32' ? 2000 : 500;
+            await new Promise(resolve => setTimeout(resolve, interval));
         }
         
         console.log(`✅ 페이지 저장 완료! 총 ${savedFiles.length}개 파일 저장`);
@@ -195,7 +253,9 @@ export class ParallelProcessor {
     async saveAssets(assetUrls) {
         console.log(`🚀 ${assetUrls.length}개 에셋 병렬 저장 시작`);
         
-        const chunks = this.chunkArray(assetUrls, this.maxConcurrency);
+        // Windows에서 청크 크기 조정
+        const chunkSize = process.platform === 'win32' ? Math.min(this.browsers.length, 2) : this.maxConcurrency;
+        const chunks = this.chunkArray(assetUrls, chunkSize);
         let totalProcessed = 0;
         const savedFiles = [];
         
@@ -213,8 +273,9 @@ export class ParallelProcessor {
             totalProcessed += chunk.length;
             console.log(`📊 진행률: ${totalProcessed}/${assetUrls.length} (${Math.round(totalProcessed/assetUrls.length*100)}%)`);
             
-            // 요청 간격 조절
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Windows에서 더 긴 간격 조절
+            const interval = process.platform === 'win32' ? 2000 : 500;
+            await new Promise(resolve => setTimeout(resolve, interval));
         }
         
         console.log(`✅ 에셋 저장 완료! 총 ${savedFiles.length}개 파일 저장`);

@@ -2,11 +2,13 @@ import puppeteer from 'puppeteer';
 import { getChromeExecutablePath } from './config.js';
 
 export class BrowserManager {
-    constructor(headless = false) {
-        this.headless = headless;
+    constructor(options = {}) {
+        this.headless = options.headless || false;
         this.browser = null;
         this.page = null;
         this.isInitialized = false;
+        this.retryCount = 0;
+        this.maxRetries = 3;
     }
 
     async init() {
@@ -116,33 +118,48 @@ export class BrowserManager {
         } catch (error) {
             console.log('❌ 브라우저 실행 실패:', error.message);
             
-            // 대체 방법: 더 간단한 설정으로 재시도
-            try {
-                console.log('🔄 대체 방법으로 재시도...');
-                this.browser = await puppeteer.launch({
-                    headless: this.headless,
-                    args: [
-                        '--no-sandbox', 
-                        '--disable-setuid-sandbox', 
-                        '--disable-dev-shm-usage',
-                        '--disable-gpu',
-                        '--disable-images',
-                        '--disable-javascript',
-                        '--memory-pressure-off',
-                        '--max_old_space_size=256'
-                    ],
-                    timeout: 60000,
-                    protocolTimeout: 60000,
-                    pipe: true
-                });
+            // 재시도 로직
+            if (this.retryCount < this.maxRetries) {
+                this.retryCount++;
+                console.log(`🔄 재시도 ${this.retryCount}/${this.maxRetries}...`);
                 
-                this.page = await this.browser.newPage();
-                console.log('✅ 대체 방법으로 브라우저 초기화 완료');
-                this.isInitialized = true;
+                // 잠시 대기 후 재시도
+                await new Promise(resolve => setTimeout(resolve, 2000));
                 
-            } catch (secondError) {
-                console.log('❌ 모든 방법 실패:', secondError.message);
-                throw secondError;
+                // 더 간단한 설정으로 재시도
+                try {
+                    this.browser = await puppeteer.launch({
+                        headless: this.headless,
+                        args: [
+                            '--no-sandbox', 
+                            '--disable-setuid-sandbox', 
+                            '--disable-dev-shm-usage',
+                            '--disable-gpu',
+                            '--disable-images',
+                            '--disable-javascript',
+                            '--memory-pressure-off',
+                            '--max_old_space_size=256',
+                            '--disable-background-timer-throttling',
+                            '--disable-backgrounding-occluded-windows',
+                            '--disable-renderer-backgrounding'
+                        ],
+                        timeout: 60000,
+                        protocolTimeout: 60000,
+                        pipe: true
+                    });
+                    
+                    this.page = await this.browser.newPage();
+                    console.log('✅ 대체 방법으로 브라우저 초기화 완료');
+                    this.isInitialized = true;
+                    
+                } catch (secondError) {
+                    console.log('❌ 재시도 실패:', secondError.message);
+                    // 재귀적으로 다시 시도
+                    return this.init();
+                }
+            } else {
+                console.log('❌ 최대 재시도 횟수 초과');
+                throw error;
             }
         }
     }
