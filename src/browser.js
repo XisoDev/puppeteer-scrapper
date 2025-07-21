@@ -12,14 +12,11 @@ export class BrowserManager {
         console.log('BrowserManager.init() 진입');
         console.log(`🚀 브라우저를 시작합니다...`);
 
-        let executablePath = undefined;
-        if (process.platform === 'win32') {
-            executablePath = getChromeExecutablePath();
-            if (executablePath) {
-                console.log(`🟢 Chrome 실행 경로: ${executablePath}`);
-            } else {
-                console.log('⚠️  Chrome 실행 파일을 찾을 수 없습니다. 시스템 PATH에 등록되어 있거나, 환경변수 CHROME_PATH를 지정하세요.');
-            }
+        let executablePath = getChromeExecutablePath();
+        if (executablePath) {
+            console.log(`🟢 Chrome 실행 경로: ${executablePath}`);
+        } else {
+            console.log('⚠️  Chrome 실행 파일을 찾을 수 없습니다. Puppeteer가 올바르게 설치되었는지 확인하세요.');
         }
 
         const browserArgs = [

@@ -1,36 +1,12 @@
-import fs from 'fs-extra';
-import path from 'path';
+import puppeteer from 'puppeteer';
 
 // 윈도우용 Chrome 경로 자동감지 함수
 export function getChromeExecutablePath() {
     console.log('getChromeExecutablePath() 진입');
-    if (process.env.CHROME_PATH) {
-        console.log('CHROME_PATH 환경변수 발견:', process.env.CHROME_PATH);
-        return process.env.CHROME_PATH;
-    }
-    // puppeteer가 설치한 chrome
-    const user = process.env.USERPROFILE || process.env.HOME;
-    console.log('USERPROFILE/HOME:', user);
-    const puppeteerChrome = path.join(user, '.cache', 'puppeteer', 'chrome', 'win64-138.0.7204.94', 'chrome-win64', 'chrome.exe');
-    console.log('puppeteerChrome 경로:', puppeteerChrome);
-    if (fs.existsSync(puppeteerChrome)) {
-        console.log('puppeteer가 설치한 Chrome 발견:', puppeteerChrome);
-        return puppeteerChrome;
-    }
-    // 일반 설치 경로
-    const candidates = [
-        'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    ];
-    for (const p of candidates) {
-        console.log('Chrome 경로 후보:', p);
-        if (fs.existsSync(p)) {
-            console.log('설치된 Chrome 발견:', p);
-            return p;
-        }
-    }
-    console.log('Chrome 실행 파일을 찾지 못함');
-    return undefined;
+    // Puppeteer가 사용하는 Chrome의 실행 경로를 직접 가져옵니다.
+    const executablePath = puppeteer.executablePath();
+    console.log(`Puppeteer's executable path: ${executablePath}`);
+    return executablePath;
 }
 
 // CLI 인자 파싱 함수
