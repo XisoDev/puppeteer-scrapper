@@ -63,6 +63,40 @@ export class BrowserManager {
             '--disable-blink-features=AutomationControlled'
         ];
 
+        // Windows에서 더 간단한 설정으로 재시도할 때 사용할 인자들
+        const simplifiedArgs = [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--disable-web-security',
+            '--disable-extensions',
+            '--no-first-run',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding',
+            '--disable-field-trial-config',
+            '--disable-ipc-flooding-protection',
+            '--no-default-browser-check',
+            '--disable-default-apps',
+            '--disable-sync',
+            '--disable-translate',
+            '--hide-scrollbars',
+            '--mute-audio',
+            '--ignore-certificate-errors',
+            '--ignore-ssl-errors',
+            '--allow-running-insecure-content',
+            '--disable-background-networking',
+            '--disable-client-side-phishing-detection',
+            '--disable-component-extensions-with-background-pages',
+            '--disable-features=TranslateUI',
+            '--force-color-profile=srgb',
+            '--metrics-recording-only',
+            '--password-store=basic',
+            '--use-mock-keychain',
+            '--disable-blink-features=AutomationControlled'
+        ];
+
         try {
             this.browser = await puppeteer.launch({
                 headless: this.headless,
@@ -74,40 +108,6 @@ export class BrowserManager {
         } catch (error) {
             console.log('❌ 기본 설정으로 브라우저 실행 실패, 대체 방법 시도...');
             try {
-                // Windows에서 더 간단한 설정으로 재시도
-                const simplifiedArgs = [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--disable-web-security',
-                    '--disable-extensions',
-                    '--no-first-run',
-                    '--disable-background-timer-throttling',
-                    '--disable-backgrounding-occluded-windows',
-                    '--disable-renderer-backgrounding',
-                    '--disable-field-trial-config',
-                    '--disable-ipc-flooding-protection',
-                    '--no-default-browser-check',
-                    '--disable-default-apps',
-                    '--disable-sync',
-                    '--disable-translate',
-                    '--hide-scrollbars',
-                    '--mute-audio',
-                    '--ignore-certificate-errors',
-                    '--ignore-ssl-errors',
-                    '--allow-running-insecure-content',
-                    '--disable-background-networking',
-                    '--disable-client-side-phishing-detection',
-                    '--disable-component-extensions-with-background-pages',
-                    '--disable-features=TranslateUI',
-                    '--force-color-profile=srgb',
-                    '--metrics-recording-only',
-                    '--password-store=basic',
-                    '--use-mock-keychain',
-                    '--disable-blink-features=AutomationControlled'
-                ];
-                
                 this.browser = await puppeteer.launch({
                     headless: this.headless,
                     executablePath,
