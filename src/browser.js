@@ -14,6 +14,10 @@ export class BrowserManager {
 
         let executablePath = getChromeExecutablePath();
         if (executablePath) {
+            // Windows에서 경로 정리
+            if (process.platform === 'win32') {
+                executablePath = executablePath.trim().replace(/\s+/g, '');
+            }
             console.log(`🟢 Chrome 실행 경로: ${executablePath}`);
         } else {
             console.log('⚠️  Chrome 실행 파일을 찾을 수 없습니다. Puppeteer가 올바르게 설치되었는지 확인하세요.');
@@ -69,13 +73,57 @@ export class BrowserManager {
             });
         } catch (error) {
             console.log('❌ 기본 설정으로 브라우저 실행 실패, 대체 방법 시도...');
-            this.browser = await puppeteer.launch({
-                headless: this.headless,
-                executablePath,
-                args: browserArgs.slice(0, 15), // 간소화된 인자들
-                ignoreDefaultArgs: ['--enable-automation'],
-                timeout: 30000
-            });
+            try {
+                // Windows에서 더 간단한 설정으로 재시도
+                const simplifiedArgs = [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--disable-web-security',
+                    '--disable-extensions',
+                    '--no-first-run',
+                    '--disable-background-timer-throttling',
+                    '--disable-backgrounding-occluded-windows',
+                    '--disable-renderer-backgrounding',
+                    '--disable-field-trial-config',
+                    '--disable-ipc-flooding-protection',
+                    '--no-default-browser-check',
+                    '--disable-default-apps',
+                    '--disable-sync',
+                    '--disable-translate',
+                    '--hide-scrollbars',
+                    '--mute-audio',
+                    '--ignore-certificate-errors',
+                    '--ignore-ssl-errors',
+                    '--allow-running-insecure-content',
+                    '--disable-background-networking',
+                    '--disable-client-side-phishing-detection',
+                    '--disable-component-extensions-with-background-pages',
+                    '--disable-features=TranslateUI',
+                    '--force-color-profile=srgb',
+                    '--metrics-recording-only',
+                    '--password-store=basic',
+                    '--use-mock-keychain',
+                    '--disable-blink-features=AutomationControlled'
+                ];
+                
+                this.browser = await puppeteer.launch({
+                    headless: this.headless,
+                    executablePath,
+                    args: simplifiedArgs,
+                    ignoreDefaultArgs: ['--enable-automation'],
+                    timeout: 30000
+                });
+            } catch (secondError) {
+                console.log('❌ 대체 방법도 실패, executablePath 없이 시도...');
+                this.browser = await puppeteer.launch({
+                    headless: this.headless,
+                    args: simplifiedArgs,
+                    ignoreDefaultArgs: ['--enable-automation'],
+                    timeout: 30000
+                });
+            }
         }
 
         this.page = await this.browser.newPage();
